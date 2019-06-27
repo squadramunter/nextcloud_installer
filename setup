@@ -291,8 +291,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]
 then
 
   sudo add-apt-repository -y ppa:certbot/certbot
-  sudo apt install -y python-certbot-apache
-  sudo certbot --apache -d $NDOMAIN -d www.$NDOMAIN
+  sudo apt install -y python-certbot-nginx
+  sudo certbot --nginx -d $NDOMAIN -d www.$NDOMAIN
 
 else
    echo "Thanks for using Nextcloud Auto Installer made by @SquadraMunter"
@@ -309,8 +309,8 @@ echo "You have set $NDOMAIN as your Domain Name"
 sleep 3
 
 sudo add-apt-repository -y ppa:certbot/certbot
-sudo apt install -y python-certbot-apache
-sudo certbot --apache -d $NDOMAIN -d www.$NDOMAIN
+sudo apt install -y python-certbot-nginx
+sudo certbot --nginx -d $NDOMAIN -d www.$NDOMAIN
 
 ;;
 
