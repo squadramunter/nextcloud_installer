@@ -136,7 +136,7 @@ NVHOST="/etc/nginx/sites-available/nextcloud"
 
 /bin/cat <<EOM >$NVHOST
 upstream php-handler {
-	server unix:/var/run/php/$php_version-fpm.sock;
+	server unix:/var/run/php/php$php_version-fpm.sock;
 }
 
 server {
