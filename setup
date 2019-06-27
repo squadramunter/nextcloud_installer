@@ -171,7 +171,7 @@ server {
     fastcgi_hide_header X-Powered-By;
 
     # Path to the root of your installation
-    root /srv/NAS-Data/www/cloud.squadrasec.com/html/nextcloud/;
+    root $NROOT/nextcloud/;
 
     location = /robots.txt {
         allow all;
