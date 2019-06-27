@@ -44,6 +44,8 @@ sleep 2
 
 sudo systemctl enable nginx.service
 
+sed -i '/server_names_hash_bucket_size 64;/c\server_names_hash_bucket_size 64;' /etc/nginx/nginx.conf
+
 sudo apt install -y mariadb-server mariadb-client
 
 sudo mysql_secure_installation
