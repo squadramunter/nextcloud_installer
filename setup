@@ -32,7 +32,7 @@ do
 
 sudo apt-get update
 
-sudo apt install -y nginx
+sudo apt install -y nginx unzip 
 
 sudo systemctl stop nginx.service
 
