@@ -38,6 +38,8 @@ sudo apt install -y nginx unzip curl
 
 sudo systemctl stop nginx.service
 
+sed -i '/server_names_hash_bucket_size 64;/c\server_names_hash_bucket_size 64;' /etc/nginx/nginx.conf
+
 sleep 2
 
 sudo systemctl start nginx.service
@@ -45,8 +47,6 @@ sudo systemctl start nginx.service
 sleep 2
 
 sudo systemctl enable nginx.service
-
-sed -i '/server_names_hash_bucket_size 64;/c\server_names_hash_bucket_size 64;' /etc/nginx/nginx.conf
 
 sudo apt install -y mariadb-server mariadb-client
 
