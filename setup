@@ -136,6 +136,8 @@ sed -i "/	server unix:/var/run/php/php7.3-fpm.sock;/c\	server unix:/var/run/php/
 
 sed -i "/    server_name  domain.com;/c\    server_name  ${NDOMAIN};" $NVHOST
 
+sed -i "/    return       301 http://www.domain.com$request_uri;/c\    return       301 http://www.${NDOMAIN}$request_uri;" $NVHOST
+
 sed -i "/    server_name  www.domain.com;/c\    server_name  www.${NDOMAIN};" $NVHOST
 
 sed -i "/    root /var/www/html/nextcloud/;/c\    root ${NROOT}/nextcloud/;" $NVHOST
