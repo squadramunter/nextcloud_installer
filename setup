@@ -169,7 +169,7 @@ fi
 
 2)
 
-read -p "Enter your Domain Name for Let's Encrypt: " NDOMAIN
+read -p "Enter your Domain Name for Let\'s Encrypt: " NDOMAIN
 echo "You have set $NDOMAIN as your Domain Name"
 
 sleep 3
@@ -184,6 +184,7 @@ sudo certbot --nginx -d $NDOMAIN -d www.$NDOMAIN
 
 sudo systemctl restart nginx
 
+fi
 ;;
 
 q) exit ;;
