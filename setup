@@ -79,16 +79,13 @@ sed -i "/date.timezone/c\date.timezone=${timezone}" /etc/php/$php_version/fpm/ph
 ## Create Nextcloud Database
 
 # create database
-echo "Please enter a database name for Nextcloud: "
-read NDATABASE
+read -p "Please enter a database name for Nextcloud: " -e NDATABASE
 
 # create username
-echo "Please enter a username for Nextcloud: "
-read NUSERNAME
+read -p "Please enter a username for Nextcloud: " -e NUSERNAME
 
 # create password
-echo "Please enter a password for Nextcloud: "
-read NPASSWORD
+read -p "Please enter a password for Nextcloud: " -s -e NPASSWORD
 
 # If /root/.my.cnf exists then it won't ask for root password
 if [ -f /root/.my.cnf ]; then
@@ -100,8 +97,7 @@ if [ -f /root/.my.cnf ]; then
 
 # If /root/.my.cnf doesn't exist then it'll ask for root password
 else
-    echo "Please enter root user MySQL password!"
-    read rootpasswd
+    read -p "Please enter root user MySQL password!: " -s -e rootpasswd
     mysql -uroot -p${rootpasswd} -e "CREATE DATABASE ${NDATABASE};"
     mysql -uroot -p${rootpasswd} -e "CREATE USER ${NUSERNAME}@localhost IDENTIFIED BY '${NPASSWORD}';"
     mysql -uroot -p${rootpasswd} -e "GRANT ALL PRIVILEGES ON ${NDATABASE}.* TO '${NUSERNAME}'@'localhost' IDENTIFIED BY '${NPASSWORD}' WITH GRANT OPTION;"
