@@ -4,8 +4,8 @@ upstream php-handler {
 
 server {
     listen 80;
-    server_name  domain.com;
-    return       301 http://www.domain.com$request_uri;
+    server_name domain.com;
+    return 301 http://www.domain.com$request_uri;
 }
 
 server {
