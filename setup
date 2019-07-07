@@ -350,7 +350,6 @@ then
   sudo certbot --nginx -d $NDOMAIN -d www.$NDOMAIN
 
   sudo systemctl restart nginx
-fi
 else
    echo "Thanks for using Nextcloud Auto Installer made by @SquadraMunter"
    while true;do echo -n ..............;sleep 1;done &
@@ -387,7 +386,6 @@ echo
 read -n 1 -s -r -p "Press any key to continue"
 echo
 
-fi
 ;;
 
 2)
@@ -423,8 +421,6 @@ sleep 5 # or do something else here
 kill $!; trap 'kill $!' SIGTERM
 
 echo
-
-fi
 ;;
 
 q) exit ;;
