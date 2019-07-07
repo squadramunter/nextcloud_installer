@@ -11,11 +11,11 @@ Prerequisites
 -------------
 
 To follow this guide and use the script to setup Nextcloud, you will need to have
-a Raspberry Pi Model B or later with an ethernet port, an SD or microSD card
+a Raspberry Pi Model 3B(+) or later with an ethernet port, an SD or microSD card
 (depending on the model) with Raspbian installed, a power adapter appropriate to
  the power needs of your model, and an ethernet cable or wifi adapter to connect your Pi to your
 router or gateway. It is recommended that you use a fresh image of Raspbian
-Stretch Lite from https://raspberrypi.org/downloads, but if you don't,
+Buster Lite from https://raspberrypi.org/downloads, but if you don't,
 be sure to make a backup image of your existing installation before proceeding.
 You should also setup your Pi with a static IP address (see either source
   1 or 2 at the bottom of this Readme) but it is not required as the script can do this for you.
