@@ -36,7 +36,7 @@ sudo ./setup
 ```
 You see a menu where you can choose from 2 options.
 
-
+![alt text](https://raw.githubusercontent.com/squadramunter/nextcloud_installer/master/nextcloud_installer.png)
 
 First option is to start the Auto Installer.
 
