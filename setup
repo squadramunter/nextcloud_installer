@@ -10,7 +10,7 @@ export vhost_https='https://raw.githubusercontent.com/squadramunter/nextcloud_in
 
 export NVHOST='/etc/nginx/sites-available/nextcloud'
 
-export nextcloud_version='16.0.1'
+export nextcloud_version='16.0.2'
 
 export php_version='7.3'
 
