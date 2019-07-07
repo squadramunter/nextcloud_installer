@@ -44,6 +44,16 @@ Second option is to request a Let's Encrypt certificate for your Nextcloud insta
 
 Please notice that the second option does not work if you have setup Nextcloud for local use.
 
+For Ubuntu users please remove the # sign for PHP and Certbot
+
+## Optional if you don't have the latest PHP
+## sudo add-apt-repository -y ppa:ondrej/php
+sudo add-apt-repository -y ppa:ondrej/php
+
+## Optional if you don't have the latest certbot
+## sudo add-apt-repository -y ppa:certbot/certbot
+sudo add-apt-repository -y ppa:certbot/certbot
+
 Removing Nextcloud
 ----------------
 At this point there is no auto remove option in the list. But this is planned as a feature project. Don't ask about this as a issue.
