@@ -47,9 +47,11 @@ Please notice that the second option does not work if you have setup Nextcloud f
 For Ubuntu users please remove the # sign for PHP and Certbot
 
 Optional if you don't have the latest PHP
+
 sudo add-apt-repository -y ppa:ondrej/php
 
 Optional if you don't have the latest certbot
+
 sudo add-apt-repository -y ppa:certbot/certbot
 
 Removing Nextcloud
