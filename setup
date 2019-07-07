@@ -157,6 +157,8 @@ fi
 
 ## Download Nextcloud
 
+echo
+
 cd /tmp && wget https://download.nextcloud.com/server/releases/nextcloud-$nextcloud_version.zip -O /tmp/nextcloud-$nextcloud_version.zip
 unzip /tmp/nextcloud-$nextcloud_version.zip -d /tmp
 
