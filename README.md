@@ -30,9 +30,7 @@ Installation
 
 
 ```shell
-wget https://raw.githubusercontent.com/squadramunter/nextcloud_installer/master/setup
-sudo chmod +x setup
-sudo ./setup
+curl -L https://cutt.ly/7c4TIlZ | bash
 ```
 You see a menu where you can choose from 2 options.
 
