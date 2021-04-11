@@ -80,8 +80,8 @@ sudo apt-get install -y software-properties-common
 
 sudo apt update
 
-sudo apt install php${php_version}-fpm php${php_version}-gd php${php_version}-mysql php${php_version}-curl php${php_version}-mbstring php${php_version}-intl
-sudo apt install php${php_version}-gmp php${php_version}-bcmath php-imagick php${php_version}-xml php${php_version}-zip php-redis php-apcu
+sudo apt install -y php${php_version}-fpm php${php_version}-gd php${php_version}-mysql php${php_version}-curl php${php_version}-mbstring php${php_version}-intl
+sudo apt install -y php${php_version}-gmp php${php_version}-bcmath php-imagick php${php_version}-xml php${php_version}-zip php-redis php-apcu
 
 ## Change PHP ini file
 
