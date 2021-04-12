@@ -21,8 +21,8 @@ subjectAltName = @alt_names
 subjectAltName = @alt_names
 
 [alt_names]
-IP.1 = $IP
-IP.2 = $EXT_IP
+IP.1 = $local_ip
+IP.2 = $external_ip
 " > san.cnf
 
 openssl req -x509 -nodes -days 730 -newkey rsa:2048 -keyout key.pem -out cert.pem -config san.cnf
