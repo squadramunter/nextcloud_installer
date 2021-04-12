@@ -1,0 +1,554 @@
+#!/usr/bin/env bash
+set -e
+
+## Before using this script keep in mind that you need a FQDN before continue
+
+## Configurable Variables
+
+export vhost_http='https://raw.githubusercontent.com/squadramunter/nextcloud_installer/master/vhosts/localhost'
+export vhost_https='https://raw.githubusercontent.com/squadramunter/nextcloud_installer/master/vhosts/nextcloud'
+
+export NVHOST='/etc/nginx/sites-available/nextcloud'
+
+export nextcloud_version='21.0.1'
+
+export php_version='7.4'
+
+export local_ip=$(ip route get 8.8.4.4 | head -1 | awk '{print $7}')
+
+export external_ip=`wget http://ipecho.net/plain -O - -q ; echo`
+
+export hostname=$(hostname -f)
+
+export timezone=$(timedatectl | grep "Time zone" | head -1 | awk '{print $3}')
+
+export domein=0
+
+## Color Scheme
+
+export RED='\033[1;31m'
+export GREEN='\033[1;32m'
+export NC='\033[0m' # No Color
+
+# Make sure only root can run our script
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+trap '' 2
+while true
+do
+  clear
+  echo "================================================================================"
+  echo "//                Nextcloud installer made by @squadramunter                  //"
+  echo "================================================================================"
+  echo "Enter 1 to install Nextcloud automatically: "
+  echo "Enter 2 to get a Let's Encrypt certificate: "
+  echo "Enter 3 to create a self signed certificate with openssl: "
+  echo "Enter q to exit the menu q: "
+  echo -e "\n"
+  echo -e "Enter your selection \c"
+  read answer
+  case "$answer" in
+1)
+
+apt-get update
+
+apt install -y nginx unzip curl
+
+systemctl stop nginx.service
+
+sed -i '/server_names_hash_bucket_size 64;/c\server_names_hash_bucket_size 64;' /etc/nginx/nginx.conf
+
+sleep 2
+
+systemctl start nginx.service
+
+sleep 2
+
+systemctl enable nginx.service
+
+apt install -y mariadb-server mariadb-client
+
+mysql_secure_installation
+
+sleep 2
+
+systemctl restart mariadb.service
+
+apt-get install -y software-properties-common
+
+## Optional if you don't have the latest PHP
+## sudo add-apt-repository -y ppa:ondrej/php
+
+apt update
+
+apt install -y php-fpm
+
+php_version=$(php -v | grep 7.* | head -1 | awk '{print $2}' | cut -d . -f -2)
+
+export php_version
+
+php7_3="php7.3-fpm php7.3-mbstring php7.3-xmlrpc php7.3-soap php7.3-apcu php7.3-smbclient php7.3-ldap php7.3-redis php7.3-gd php7.3-xml php7.3-intl php7.3-json php7.3-imagick php7.3-mysql php7.3-cli php7.3-ldap php7.3-zip php7.3-curl php7.3-bcmath php7.3-gmp"
+php7_4="php7.4-fpm php7.4-gd php7.4-mysql php7.4-curl php7.4-mbstring php7.4-intl php7.4-gmp php7.4-bcmath php-imagick php7.4-xml php7.4-zip php-redis php-apcu"
+
+if [ $php_version = 7.3 ]
+then
+        apt install -y $php7_3
+elif [ $php_version = 7.4 ]
+then
+        apt install -y $php7_4
+fi
+
+
+## Change PHP ini file
+
+sed -i '/file_uploads/c\file_uploads=On' /etc/php/${php_version}/fpm/php.ini
+sed -i '/allow_url_fopen/c\allow_url_fopen=On' /etc/php/${php_version}/fpm/php.ini
+sed -i '/memory_limit/c\memory_limit=512M' /etc/php/${php_version}/fpm/php.ini
+sed -i '/upload_max_filesize/c\upload_max_filesize=512M' /etc/php/${php_version}/fpm/php.ini
+sed -i '/display_errors/c\display_errors=Off' /etc/php/${php_version}/fpm/php.ini
+sed -i '/cgi.fix_pathinfo/c\cgi.fix_pathinfo=0' /etc/php/${php_version}/fpm/php.ini
+sed -i "/date.timezone/c\date.timezone=${timezone}" /etc/php/${php_version}/fpm/php.ini
+sed -i "/listen/c\listen=127.0.0.1:9000" /etc/php/${php_version}/fpm/pool.d/www.conf
+
+sed -i '/;clear_env/c\clear_env=no' /etc/php/${php_version}/fpm/pool.d/www.conf
+
+systemctl restart php$php_version-fpm
+
+## Create Nextcloud Database
+
+mysqlconf='/etc/mysql/conf.d/mysql.cnf'
+
+/bin/cat <<EOM >${mysqlconf}
+[mysqld]
+innodb_large_prefix=true
+innodb_file_format=barracuda
+innodb_file_per_table=1
+EOM
+
+echo -e "${RED}You are going to setup a Nextcloud Database. Please follow the instructions on screen!${NC}"
+
+while true;do echo -n ..............;sleep 1;done &
+sleep 5 # or do something else here
+kill $!; trap 'kill $!' SIGTERM
+
+echo
+
+# create database
+read -p $'\e[1;31mPlease enter a Database name for Nextcloud: \e[0m' -e NDATABASE
+
+read -p $'\e[1;31mPlease enter a Username for the Nextcloud Database: \e[0m' -e NDUSERNAME
+
+read -p $'\e[1;31mPlease enter a Password for the Nextcloud Database: \e[0m' -s -e NDPASSWORD
+
+echo
+
+while true;do echo -n ..............;sleep 1;done &
+sleep 5 # or do something else here
+kill $!; trap 'kill $!' SIGTERM
+
+echo
+
+# If /root/.my.cnf exists then it won't ask for root password
+if [ -f /root/.my.cnf ]; then
+
+    mysql -e "CREATE DATABASE ${NDATABASE};"
+    mysql -e "CREATE USER ${NDUSERNAME}@localhost IDENTIFIED BY '${NDPASSWORD}';"
+    mysql -e "GRANT ALL PRIVILEGES ON ${NDATABASE}.* TO '${NDUSERNAME}'@'localhost' IDENTIFIED BY '${NDPASSWORD}' WITH GRANT OPTION;"
+    mysql -e "FLUSH PRIVILEGES;"
+
+# If /root/.my.cnf doesn't exist then it'll ask for root password
+else
+    echo $'\e[1;31mBefore we can continue please enter your MySQL ROOT password\e[0m'
+
+    while true;do echo -n ..............;sleep 1;done &
+    sleep 5 # or do something else here
+    kill $!; trap 'kill $!' SIGTERM
+
+    echo
+
+    read -p "Please enter root user MySQL password!: " -s -e rootpasswd
+    mysql -uroot -p${rootpasswd} -e "CREATE DATABASE ${NDATABASE};"
+    mysql -uroot -p${rootpasswd} -e "CREATE USER ${NDUSERNAME}@localhost IDENTIFIED BY '${NDPASSWORD}';"
+    mysql -uroot -p${rootpasswd} -e "GRANT ALL PRIVILEGES ON ${NDATABASE}.* TO '${NDUSERNAME}'@'localhost' IDENTIFIED BY '${NDPASSWORD}' WITH GRANT OPTION;"
+    mysql -uroot -p${rootpasswd} -e "FLUSH PRIVILEGES;"
+fi
+
+## Download Nextcloud
+
+echo
+
+cd /tmp && wget https://download.nextcloud.com/server/releases/nextcloud-$nextcloud_version.zip -O /tmp/nextcloud-$nextcloud_version.zip
+unzip /tmp/nextcloud-$nextcloud_version.zip -d /tmp
+
+## Move nextcloud to www root
+
+read -p $'\e[1;31mEnter web root for Nextcloud [/var/www/html]: \e[0m' -e NROOT
+
+NROOT=${NROOT:-/var/www/html}
+
+export NROOT1=${NROOT}
+
+if [ -d "$NROOT" ]; then
+  ### Take action if $NROOT exists ###
+  echo -e "You have set ${GREEN}$NROOT${NC} as your web root"
+else
+  ###  Control will jump here if $DIR does NOT exists ###
+  echo -e "Directory ${GREEN}$NROOT${NC} does not exists... Creating directory..."
+  mkdir -p ${NROOT}
+fi
+
+while true;do echo -n ..............;sleep 1;done &
+sleep 5 # or do something else here
+kill $!; trap 'kill $!' SIGTERM
+
+echo
+
+mv /tmp/nextcloud $NROOT
+
+## Set the right permissions for nextcloud
+chown -R www-data:www-data $NROOT/nextcloud
+chmod -R 755 $NROOT/nextcloud
+
+## Setup User and Password for Nextcloud instance
+
+echo -e "${RED}You are going to setup a User Account for Nextcloud. Please follow the instructions on screen!${NC}"
+
+while true;do echo -n ..............;sleep 1;done &
+sleep 5 # or do something else here
+kill $!; trap 'kill $!' SIGTERM
+
+echo
+
+read -p $'\e[1;31mPlease enter a username for logging in to Nextcloud: \e[0m' -e NUSERNAME
+
+read -p $'\e[1;31mPlease enter a password for logging in to Nextcloud: \e[0m' -s -e NPASSWORD
+
+echo
+
+echo -e "${RED}Please keep in mind! This can take a few minutes to complete...${NC}"
+
+while true;do echo -n ..............;sleep 1;done &
+sleep 5 # or do something else here
+kill $!; trap 'kill $!' SIGTERM
+
+echo
+
+php ${NROOT}/nextcloud/occ  maintenance:install --database "mysql" --database-name "${NDATABASE}"  --database-user "${NDUSERNAME}" --database-pass "${NDPASSWORD}" --admin-user "${NUSERNAME}" --admin-pass "${NPASSWORD}"
+
+php ${NROOT}/nextcloud/occ config:system:set mysql.utf8mb4 --type boolean --value="true"
+
+systemctl restart mysqld
+
+## Configure Nextcloud VirtualHost for nginx
+
+while true; do
+      read -p 'Do you have a FQDN? (Fully Qualified Domain Name) (yes/no)? '
+
+      case "$REPLY" in
+          [yY]*)
+
+          NVHOST="/etc/nginx/sites-available/nextcloud"
+
+          wget $vhost_https -O $NVHOST
+
+          # enter domainname FQDN for Nextcloud
+          read -p "Enter your Domain Name for Nextcloud (example.com): " NDOMAIN
+
+          if [[ "${NDOMAIN}" =~ [^A-Za-z0-9\&./=_:?-] ]]; then
+              echo -e "${RED}That URL is NOT allowed. Please use a FQDN! (Fully Qualified Domain Name)${NC}"
+              read -p "Enter your Domain Name for Nextcloud (example.com): " NDOMAIN
+          else
+              echo -e "${GREEN}That URL is allowed.${NC}"
+              domain=1
+          fi
+
+          NDOMAIN=$(echo $NDOMAIN |tr A-Z a-z |sed 's/.*:\/\/www\.//' |sed 's/^www\.//' |sed 's/[^0-9a-z]*$//')
+          echo -e "You have set ${GREEN}$NDOMAIN${NC} as your Domain Name"
+
+          while true;do echo -n ..............;sleep 1;done &
+          sleep 5 # or do something else here
+          kill $!; trap 'kill $!' SIGTERM
+
+          echo
+
+          sed -i "s|server_name domain.com;|server_name ${NDOMAIN};|g" $NVHOST
+
+          sed -i "s|return 301 http://www.domain.com\$request_uri;|return 301 http://www.${NDOMAIN}\$request_uri;|g" $NVHOST
+
+          sed -i "s|server_name  www.domain.com;|server_name  www.${NDOMAIN};|g" $NVHOST
+
+          sed -i "s|root /var/www/html/nextcloud/;|root ${NROOT}/nextcloud/;|g" $NVHOST
+
+          ## Adding trusted_domains to config.php
+
+          php ${NROOT}/nextcloud/occ config:system:set trusted_domains 2 --value=${NDOMAIN}
+          php ${NROOT}/nextcloud/occ config:system:set trusted_domains 3 --value=www.${NDOMAIN}
+
+          ## Enable Nextcloud VirtualHost
+          ln -s $NVHOST /etc/nginx/sites-enabled/
+
+          rm -rf /etc/nginx/sites-enabled/default
+
+          systemctl restart nginx.service
+
+          echo "Do you want to setup a Let's Encrypt Certificate?"
+          read -p "Would you like to proceed y/n? " -n 1 -r
+          echo
+
+          if [[ $REPLY =~ ^[Yy]$ ]]
+          then
+
+            echo -e "${RED}You are going to setup a Let's Encrypt Certificate. Please follow the instructions on screen!${NC}"
+
+            while true;do echo -n ..............;sleep 1;done &
+            sleep 5 # or do something else here
+            kill $!; trap 'kill $!' SIGTERM
+
+            echo
+
+            # enter domainname FQDN for Nextcloud
+            read -p "Enter your Domain Name for Nextcloud (example.com): " NDOMAIN
+
+            enabled="1"
+
+            if [[ "${NDOMAIN}" == "${enabled}" ]]; then
+                echo -e "${RED}That URL is NOT allowed. Please use a FQDN! (Fully Qualified Domain Name)${NC}"
+                read -p "Enter your Domain Name for Nextcloud (example.com): " NDOMAIN
+            else
+                echo -e "${GREEN}That URL is allowed.${NC}"
+
+            fi
+
+            NDOMAIN=$(echo $NDOMAIN |tr A-Z a-z |sed 's/.*:\/\/www\.//' |sed 's/^www\.//' |sed 's/[^0-9a-z]*$//')
+            echo -e "You have set ${GREEN}$NDOMAIN${NC} as your Domain Name"
+
+            sed -i "s|# add_header Strict-Transport-Security \"max-age=15768000; includeSubDomains; preload;\";|add_header Strict-Transport-Security \"max-age=15768000; includeSubDomains; preload;\";|g" $NVHOST
+
+            ## Optional if you don't have the latest certbot
+            ## sudo add-apt-repository -y ppa:certbot/certbot
+
+            apt install -y python-certbot-nginx
+            
+            certbot --nginx -d $NDOMAIN -d www.$NDOMAIN
+
+            chown www-data:www-data -R $NROOT1/nextcloud
+
+            systemctl restart php$php_version-fpm.service
+
+            systemctl restart nginx.service
+
+          else
+             echo "Thanks for using Nextcloud Auto Installer made by @SquadraMunter"
+             while true;do echo -n ..............;sleep 1;done &
+             sleep 5 # or do something else here
+             kill $!; trap 'kill $!' SIGTERM
+          fi
+
+          break
+      ;;
+          [nN]*)
+
+          ## Configure Nextcloud VirtualHost for nginx
+
+          NVHOST="/etc/nginx/sites-available/nextcloud"
+
+          wget $vhost_http -O $NVHOST
+
+          sed -i "s|server_name domain.com;|server_name ${hostname};|g" $NVHOST
+
+          sed -i "s|return 301 http://www.domain.com\$request_uri;|return 301 http://www.${hostname}\$request_uri;|g" $NVHOST
+
+          sed -i "s|server_name www.domain.com;|server_name  www.${hostname};|g" $NVHOST
+
+          sed -i "s|root /var/www/html/nextcloud/;|root ${NROOT1}/nextcloud/;|g" $NVHOST
+
+          #Creating self signed Openssl certificate
+
+          echo "[req]
+          default_bits  = 2048
+          distinguished_name = req_distinguished_name
+          req_extensions = req_ext
+          x509_extensions = v3_req
+          prompt = no
+          [req_distinguished_name]
+          countryName = US
+          stateOrProvinceName = Nextcloud
+          localityName = Nextcloud
+          organizationName = Nextcloud
+          commonName = $hostname
+          [req_ext]
+          subjectAltName = @alt_names
+          [v3_req]
+          subjectAltName = @alt_names
+          [alt_names]
+          IP.1 = $local_ip
+          IP.2 = $external_ip
+          " > san.cnf
+
+          openssl req -x509 -nodes -days 730 -newkey rsa:2048 -keyout key.pem -out cert.pem -config san.cnf
+          rm san.cnf
+
+          mkdir /etc/nginx/ssl-certs/
+
+          mv cert.pem /etc/nginx/ssl-certs/nextcloud.pem
+          mv key.pem /etc/nginx/ssl-certs/nextcloud_key.pem
+
+          sed -i "s|ssl_certificate /etc/ssl/nginx/cloud.example.com.crt; /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
+
+          sed -i "s|ssl_trusted_certificate /etc/ssl/nginx/cloud.example.com.crt; /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
+
+          sed -i "s|ssl_certificate_key /etc/ssl/nginx/cloud.example.com.key; /etc/nginx/ssl-certs/nextcloud_key.pem;|g" $NVHOST
+
+
+          ## Adding trusted_domains to config.php
+
+          php ${NROOT}/nextcloud/occ config:system:set trusted_domains 2 --value=${local_ip}
+          php ${NROOT}/nextcloud/occ config:system:set trusted_domains 3 --value=${external_ip}
+          php ${NROOT}/nextcloud/occ config:system:set trusted_domains 4 --value=${hostname}
+
+          ## Enable Nextcloud VirtualHost
+          ln -s $NVHOST /etc/nginx/sites-enabled/
+
+          rm -rf /etc/nginx/sites-enabled/default
+
+          chown www-data:www-data -R $NROOT1/nextcloud
+
+          systemctl restart php$php_version-fpm.service
+
+          systemctl restart nginx.service
+
+          echo "Thanks for using Nextcloud Auto Installer made by @SquadraMunter"
+          while true;do echo -n ..............;sleep 1;done &
+          sleep 5 # or do something else here
+          kill $!; trap 'kill $!' SIGTERM
+
+          echo
+
+          break
+      ;;
+*) echo 'Sorry, try that again please!' >&2
+  esac
+done
+
+
+
+echo
+
+echo "Thanks for using Nextcloud Auto Installer made by @SquadraMunter"
+while true;do echo -n ..............;sleep 1;done &
+sleep 5 # or do something else here
+kill $!; trap 'kill $!' SIGTERM
+
+echo
+
+echo -e "${RED}=========================================================================================${NC}"
+echo -e "               ${RED}Your Local IP for Nextcloud:${NC} ${GREEN}http://${local_ip}${NC}              "
+echo -e "             ${RED}Your External IP for Nextcloud:${NC} ${GREEN}http://$external_ip${NC}            "
+if [ ${domein} == 1 ]; then
+echo -e "                ${RED}Your domain name: ${NC} ${GREEN}http://$NDOMAIN${NC}                          "
+else
+echo -e "             ${RED}Your domain name: ${NC} ${GREEN}http://$hostname${NC}                            "
+fi
+echo -e "                                                                                                    "
+echo -e "${RED}=========================================================================================${NC}"
+
+echo
+echo
+
+echo -e "${RED}=========================================================================================${NC}"
+echo -e "   ${GREEN}Port forwarding is required before accessing your Nextcloud instance from outside!${NC}  "
+echo -e "${RED}=========================================================================================${NC}"
+
+echo
+echo
+
+read -n 1 -s -r -p "Press any key to continue"
+echo
+
+;;
+
+2)
+
+read -p "Enter your Domain Name for Nextcloud example.com: " NDOMAIN
+
+if [[ "${NDOMAIN}" =~ [^A-Za-z0-9\&./=_:?-] ]]; then
+    echo -e "${RED}That URL is NOT allowed. Please use a FQDN!${NC}"
+    read -p "Enter your Domain Name for Nextcloud example.com: " NDOMAIN
+else
+    echo -e "${GREEN}That URL is allowed.${NC}"
+fi
+
+NDOMAIN=$(echo $NDOMAIN |tr A-Z a-z |sed 's/.*:\/\/www\.//' |sed 's/^www\.//' |sed 's/[^0-9a-z]*$//')
+echo -e "You have set ${GREEN}$NDOMAIN${NC} as your Domain Name"
+
+sleep 3
+
+NVHOST="/etc/nginx/sites-available/nextcloud"
+
+sed -i "s|# add_header Strict-Transport-Security \"max-age=15768000; includeSubDomains; preload;\";|add_header Strict-Transport-Security \"max-age=15768000; includeSubDomains; preload;\";|g" $NVHOST
+
+## Optional if you don't have the latest certbot
+## sudo add-apt-repository -y ppa:certbot/certbot
+apt install -y python-certbot-nginx
+certbot --nginx -d $NDOMAIN -d www.$NDOMAIN
+
+systemctl restart nginx
+
+echo "Thanks for using Nextcloud Auto Installer made by @SquadraMunter"
+while true;do echo -n ..............;sleep 1;done &
+sleep 5 # or do something else here
+kill $!; trap 'kill $!' SIGTERM
+
+echo
+;;
+
+3)
+
+NVHOST="/etc/nginx/sites-available/nextcloud"
+
+echo "[req]
+default_bits  = 2048
+distinguished_name = req_distinguished_name
+req_extensions = req_ext
+x509_extensions = v3_req
+prompt = no
+[req_distinguished_name]
+countryName = US
+stateOrProvinceName = Nextcloud
+localityName = Nextcloud
+organizationName = Nextcloud
+commonName = $hostname
+[req_ext]
+subjectAltName = @alt_names
+[v3_req]
+subjectAltName = @alt_names
+[alt_names]
+IP.1 = $local_ip
+IP.2 = $external_ip
+" > san.cnf
+
+openssl req -x509 -nodes -days 730 -newkey rsa:2048 -keyout key.pem -out cert.pem -config san.cnf
+rm san.cnf
+
+mkdir /etc/nginx/ssl-certs/
+
+mv cert.pem /etc/nginx/ssl-certs/nextcloud.pem
+mv key.pem /etc/nginx/ssl-certs/nextcloud_key.pem
+
+sed -i "s|ssl_certificate /etc/ssl/nginx/cloud.example.com.crt; /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
+
+sed -i "s|ssl_trusted_certificate /etc/ssl/nginx/cloud.example.com.crt; /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
+
+sed -i "s|ssl_certificate_key /etc/ssl/nginx/cloud.example.com.key; /etc/nginx/ssl-certs/nextcloud_key.pem;|g" $NVHOST
+
+;;
+
+q) exit ;;
+
+  esac
+  echo -e "Enter return to continue \c"
+  read input
+done
