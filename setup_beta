@@ -10,10 +10,6 @@ export vhost_https='https://raw.githubusercontent.com/squadramunter/nextcloud_in
 
 export NVHOST='/etc/nginx/sites-available/nextcloud'
 
-export nextcloud_version='21.0.1'
-
-export php_version='7.4'
-
 export local_ip=$(ip route get 8.8.4.4 | head -1 | awk '{print $7}')
 
 export external_ip=`wget http://ipecho.net/plain -O - -q ; echo`
@@ -22,7 +18,9 @@ export hostname=$(hostname -f)
 
 export timezone=$(timedatectl | grep "Time zone" | head -1 | awk '{print $3}')
 
-export domein=0
+export domain=0
+
+export ncrepo="https://download.nextcloud.com/server/releases"
 
 ## Color Scheme
 
@@ -55,7 +53,7 @@ do
 
 apt-get update
 
-apt install -y nginx unzip curl
+apt install -y nginx unzip curl imagemagick
 
 systemctl stop nginx.service
 
@@ -114,6 +112,23 @@ sed -i "/date.timezone/c\date.timezone=${timezone}" /etc/php/${php_version}/fpm/
 sed -i "/listen/c\listen=127.0.0.1:9000" /etc/php/${php_version}/fpm/pool.d/www.conf
 
 sed -i '/;clear_env/c\clear_env=no' /etc/php/${php_version}/fpm/pool.d/www.conf
+
+#Optimize speed for php caching
+
+echo "pm = dynamic
+pm.max_children = 120
+pm.start_servers = 12
+pm.min_spare_servers = 6
+pm.max_spare_servers = 18
+" >> /etc/php/$php_version/fpm/pool.d/www.conf
+
+echo "opcache.enable=1
+opcache.interned_strings_buffer=8
+opcache.max_accelerated_files=10000
+opcache.memory_consumption=128
+opcache.save_comments=1
+opcache.revalidate_freq=1
+" >> /etc/php/$php_version/fpm/php.ini
 
 systemctl restart php$php_version-fpm
 
@@ -180,8 +195,28 @@ fi
 
 echo
 
-cd /tmp && wget https://download.nextcloud.com/server/releases/nextcloud-$nextcloud_version.zip -O /tmp/nextcloud-$nextcloud_version.zip
-unzip /tmp/nextcloud-$nextcloud_version.zip -d /tmp
+# Get latest nextcloud version
+if [[ -n "$version" ]]; then
+        ncversion=${version}
+        echo "Checking Nextcloud v${version} on the download server and if it's possible to download..."
+else
+        ncversion=$(curl -s -m 900 $ncrepo/ | tac | grep unknown.gif | sed 's/.*"nextcloud-\([^"]*\).zip.sha512".*/\1/;q')
+        echo "Checking latest version on the Nextcloud download server and if it's possible to download..."
+fi
+
+# Check Nextcloud download
+echo ""
+wget -q -T 10 -t 2 $ncrepo/nextcloud-$ncversion.zip -O /tmp/nextcloud-$ncversion.zip
+if [ $? -eq 0 ]; then
+        printf $ugreen"Nextcloud downloaded!\n"$reset
+else
+        printf $lightred"Nextcloud version ${version} doesn't exist.\n"$reset
+        echo ""
+        printf "Please check available versions here: ${ugreen}${ncrepo}\n"$reset
+        abort
+fi
+
+unzip /tmp/nextcloud-$ncversion.zip -d /tmp
 
 ## Move nextcloud to www root
 
@@ -236,9 +271,13 @@ kill $!; trap 'kill $!' SIGTERM
 
 echo
 
-php ${NROOT}/nextcloud/occ  maintenance:install --database "mysql" --database-name "${NDATABASE}"  --database-user "${NDUSERNAME}" --database-pass "${NDPASSWORD}" --admin-user "${NUSERNAME}" --admin-pass "${NPASSWORD}"
+php ${NROOT}/nextcloud/occ maintenance:install --database "mysql" --database-name "${NDATABASE}" --database-user "${NDUSERNAME}" --database-pass "${NDPASSWORD}" --admin-user "${NUSERNAME}" --admin-pass "${NPASSWORD}"
 
 php ${NROOT}/nextcloud/occ config:system:set mysql.utf8mb4 --type boolean --value="true"
+
+php ${NROOT}/nextcloud/occ config:system:set default_phone_region --value="US"
+
+php ${NROOT}/nextcloud/occ config:system:set memcache.local --value="\OC\Memcache\APCu"
 
 systemctl restart mysqld
 
@@ -331,7 +370,7 @@ while true; do
             ## sudo add-apt-repository -y ppa:certbot/certbot
 
             apt install -y python-certbot-nginx
-            
+
             certbot --nginx -d $NDOMAIN -d www.$NDOMAIN
 
             chown www-data:www-data -R $NROOT1/nextcloud
@@ -363,7 +402,7 @@ while true; do
 
           sed -i "s|server_name www.domain.com;|server_name  www.${hostname};|g" $NVHOST
 
-          sed -i "s|root /var/www/html/nextcloud/;|root ${NROOT1}/nextcloud/;|g" $NVHOST
+          sed -i "s|root /var/www/nextcloud;|root ${NROOT1}/nextcloud/;|g" $NVHOST
 
           #Creating self signed Openssl certificate
 
@@ -396,12 +435,11 @@ while true; do
           mv cert.pem /etc/nginx/ssl-certs/nextcloud.pem
           mv key.pem /etc/nginx/ssl-certs/nextcloud_key.pem
 
-          sed -i "s|ssl_certificate /etc/ssl/nginx/cloud.example.com.crt; /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
+          sed -i "s|ssl_certificate /etc/ssl/nginx/cloud.example.com.crt;|ssl_certificate /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
 
-          sed -i "s|ssl_trusted_certificate /etc/ssl/nginx/cloud.example.com.crt; /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
+          sed -i "s|ssl_trusted_certificate /etc/ssl/nginx/cloud.example.com.crt;|ssl_trusted_certificate /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
 
-          sed -i "s|ssl_certificate_key /etc/ssl/nginx/cloud.example.com.key; /etc/nginx/ssl-certs/nextcloud_key.pem;|g" $NVHOST
-
+          sed -i "s|ssl_certificate_key /etc/ssl/nginx/cloud.example.com.key;|ssl_certificate_key /etc/nginx/ssl-certs/nextcloud_key.pem;|g" $NVHOST
 
           ## Adding trusted_domains to config.php
 
@@ -445,10 +483,10 @@ kill $!; trap 'kill $!' SIGTERM
 echo
 
 echo -e "${RED}=========================================================================================${NC}"
-echo -e "               ${RED}Your Local IP for Nextcloud:${NC} ${GREEN}http://${local_ip}${NC}              "
+echo -e "             ${RED}Your Local IP for Nextcloud:${NC} ${GREEN}http://${local_ip}${NC}                "
 echo -e "             ${RED}Your External IP for Nextcloud:${NC} ${GREEN}http://$external_ip${NC}            "
-if [ ${domein} == 1 ]; then
-echo -e "                ${RED}Your domain name: ${NC} ${GREEN}http://$NDOMAIN${NC}                          "
+if [ ${domain} == 1 ]; then
+echo -e "             ${RED}Your domain name: ${NC} ${GREEN}http://$NDOMAIN${NC}                             "
 else
 echo -e "             ${RED}Your domain name: ${NC} ${GREEN}http://$hostname${NC}                            "
 fi
@@ -538,11 +576,11 @@ mkdir /etc/nginx/ssl-certs/
 mv cert.pem /etc/nginx/ssl-certs/nextcloud.pem
 mv key.pem /etc/nginx/ssl-certs/nextcloud_key.pem
 
-sed -i "s|ssl_certificate /etc/ssl/nginx/cloud.example.com.crt; /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
+sed -i "s|ssl_certificate /etc/ssl/nginx/cloud.example.com.crt;|ssl_certificate /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
 
-sed -i "s|ssl_trusted_certificate /etc/ssl/nginx/cloud.example.com.crt; /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
+sed -i "s|ssl_trusted_certificate /etc/ssl/nginx/cloud.example.com.crt;|ssl_trusted_certificate /etc/nginx/ssl-certs/nextcloud.pem;|g" $NVHOST
 
-sed -i "s|ssl_certificate_key /etc/ssl/nginx/cloud.example.com.key; /etc/nginx/ssl-certs/nextcloud_key.pem;|g" $NVHOST
+sed -i "s|ssl_certificate_key /etc/ssl/nginx/cloud.example.com.key;|ssl_certificate_key /etc/nginx/ssl-certs/nextcloud_key.pem;|g" $NVHOST
 
 ;;
 
