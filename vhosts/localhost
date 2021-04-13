@@ -9,7 +9,7 @@ server {
 }
 
 server {
-    listen 443;
+    listen 443 http2;
     server_name www.domain.com;
 
     # Use Mozilla's guidelines for SSL/TLS settings
